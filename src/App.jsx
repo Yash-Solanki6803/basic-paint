@@ -67,7 +67,7 @@ function App() {
     const canvas = document.getElementById("canvas");
     const ctx = canvas.getContext("2d");
     //clear the canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.clearRect(0, 64, canvas.width, canvas.height);
 
     elements.forEach(({ element }) => {
       element.draw(ctx);
@@ -142,32 +142,43 @@ function App() {
 
   return (
     <div>
-      <div
-        style={{
-          position: "fixed",
-        }}
-      >
-        <label htmlFor="selection">Selection</label>
-        <input
-          type="radio"
-          id="selection"
-          checked={tool === "selection"}
-          onChange={() => setTool("selection")}
-        />
-        <label htmlFor="line">Line</label>
-        <input
-          type="radio"
-          id="line"
-          checked={tool === "line"}
-          onChange={() => setTool("line")}
-        />
-        <label htmlFor="rectangle">Rectangle</label>
-        <input
-          type="radio"
-          id="rectangle"
-          checked={tool === "rectangle"}
-          onChange={() => setTool("rectangle")}
-        />
+      <div className="fixed top-0 left-0 right-0 flex gap-10 items-center p-4 bg-gray-800 text-white h-16">
+        <div className="bg-gray-700 px-4 py-2 flex gap-3 rounded-full hover:cursor-pointer">
+          <label className="hover:cursor-pointer" htmlFor="selection">
+            Selection
+          </label>
+          <input
+            className="hover:cursor-pointer"
+            type="radio"
+            id="selection"
+            checked={tool === "selection"}
+            onChange={() => setTool("selection")}
+          />
+        </div>
+        <div className="bg-gray-700 px-4 py-2 flex gap-3 rounded-full hover:cursor-pointer">
+          <label className="hover:cursor-pointer" htmlFor="line">
+            Line
+          </label>
+          <input
+            className="hover:cursor-pointer"
+            type="radio"
+            id="line"
+            checked={tool === "line"}
+            onChange={() => setTool("line")}
+          />
+        </div>
+        <div className="bg-gray-700 px-4 py-2 flex gap-3 rounded-full hover:cursor-pointer">
+          <label className="hover:cursor-pointer" htmlFor="rectangle">
+            Rectangle
+          </label>
+          <input
+            className="hover:cursor-pointer"
+            type="radio"
+            id="rectangle"
+            checked={tool === "rectangle"}
+            onChange={() => setTool("rectangle")}
+          />
+        </div>
       </div>
       <canvas
         id="canvas"
