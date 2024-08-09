@@ -202,6 +202,7 @@ function App() {
         tool
       );
       setElements([...elements, element]);
+      setSelectedElement(element);
       setAction("drawing");
     }
   };
@@ -248,11 +249,14 @@ function App() {
     }
   };
   const handleMouseUp = () => {
-    const { id, tool } = elements[elements.length - 1];
-    //if the action is drawing, adjust the element's coords to have x1, y1 as the top-left corner and x2, y2 as the bottom-right corner
-    if (action === "drawing" || action === "resizing") {
-      const { x1, y1, x2, y2 } = adjustElement(elements[elements.length - 1]);
-      updateElement(id, x1, y1, x2, y2, tool);
+    if (selectedElement) {
+      const index = selectedElement.id;
+      const { id, tool } = elements[index];
+      //if the action is drawing, adjust the element's coords to have x1, y1 as the top-left corner and x2, y2 as the bottom-right corner
+      if (action === "drawing" || action === "resizing") {
+        const { x1, y1, x2, y2 } = adjustElement(elements[index]);
+        updateElement(id, x1, y1, x2, y2, tool);
+      }
     }
 
     //reset the action and selected element
