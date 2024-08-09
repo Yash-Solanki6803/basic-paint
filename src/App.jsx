@@ -1,6 +1,7 @@
-import { useLayoutEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useState } from "react";
 import { Line, Rectangle } from "./classes";
 import { distance } from "./utils";
+import { useHistory } from "./hooks";
 
 function createElement(id, x1, y1, x2, y2, tool) {
   let element;
@@ -157,7 +158,7 @@ function resizedCoords(prevCoords, x, y, clientX, clientY, type) {
 }
 
 function App() {
-  const [elements, setElements] = useState([]);
+  const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
   const [tool, setTool] = useState("line");
   const [selectedElement, setSelectedElement] = useState(null);
@@ -176,7 +177,7 @@ function App() {
   function updateElement(id, x1, y1, x2, y2, tool) {
     const element = createElement(id, x1, y1, x2, y2, tool);
     const updatedElements = elements.map((el) => (el.id === id ? element : el));
-    setElements(updatedElements);
+    setElements(updatedElements, true);
   }
 
   const handleMouseDown = (e) => {
@@ -188,6 +189,8 @@ function App() {
         element.offsetX = offsetX;
         element.offsetY = offsetY;
         setSelectedElement(element);
+        //Make a copy of current elements into history to allow undo/redo
+        setElements((prev) => prev);
         element.corner ? setAction("resizing") : setAction("moving");
       }
     } else {
@@ -264,6 +267,19 @@ function App() {
     setSelectedElement(null);
   };
 
+  //keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === "z" && (e.ctrlKey || e.metaKey)) {
+        undo();
+      } else if (e.key === "y" && e.ctrlKey) {
+        redo();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [undo, redo]);
+
   return (
     <div>
       <div className="fixed top-0 left-0 right-0 flex gap-10 items-center p-4 bg-gray-800 text-white h-16">
@@ -303,6 +319,20 @@ function App() {
             onChange={() => setTool("rectangle")}
           />
         </div>
+      </div>
+      <div className="fixed bottom-0 flex gap-2">
+        <button
+          className="bg-gray-600 px-4 py-2 rounded-lg text-white hover:bg-gray-700"
+          onClick={undo}
+        >
+          Undo
+        </button>
+        <button
+          className="bg-gray-600 px-4 py-2 rounded-lg text-white hover:bg-gray-700"
+          onClick={redo}
+        >
+          Redo
+        </button>
       </div>
       <canvas
         id="canvas"
