@@ -1,45 +1,18 @@
 import { useLayoutEffect, useState } from "react";
+import { Line, Rectangle } from "./classes";
+import { distance } from "./utils";
 
-class Line {
-  constructor(x1, y1, x2, y2) {
-    this.x1 = x1;
-    this.y1 = y1;
-    this.x2 = x2;
-    this.y2 = y2;
-  }
-  draw(ctx) {
-    ctx.beginPath();
-    ctx.moveTo(this.x1, this.y1);
-    ctx.lineTo(this.x2, this.y2);
-    ctx.stroke();
-  }
-}
-
-class Rectangle {
-  constructor(x, y, width, height) {
-    this.x = x;
-    this.y = y;
-    this.width = width;
-    this.height = height;
-  }
-  draw(ctx) {
-    ctx.beginPath();
-    ctx.rect(this.x, this.y, this.width, this.height);
-    ctx.stroke();
-  }
-}
-
-function distance(x1, y1, x2, y2) {
-  return Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
-}
-
-function createElement(id, x1, y1, x2, y2, elementType) {
+function createElement(id, x1, y1, x2, y2, tool) {
   let element;
-  switch (elementType) {
+  switch (tool) {
     case "line":
+      //x1 & y1 are the starting point of the line
+      //x2 & y2 are the ending point of the line
       element = new Line(x1, y1, x2, y2);
       break;
     case "rectangle":
+      //x1 & y1 are the top-left corner of the rectangle
+      //x2 & y2 are the bottom-right corner of the rectangle
       element = new Rectangle(x1, y1, x2 - x1, y2 - y1);
       break;
 
@@ -52,42 +25,34 @@ function createElement(id, x1, y1, x2, y2, elementType) {
     y1,
     x2,
     y2,
-    elementType,
+    tool,
     element,
   };
 }
 
-function getSelectedElement(x, y, elements) {
+function getSelectableElement(clientX, clientY, elements) {
   let selectedElement;
   elements.forEach((element) => {
-    const { x1, y1, x2, y2, elementType } = element;
-    switch (elementType) {
+    const { x1, y1, x2, y2, tool } = element;
+    switch (tool) {
       case "line":
+        //check if the point is close to the line
         if (
-          distance(x1, y1, x, y) +
-            distance(x2, y2, x, y) -
+          distance(x1, y1, clientX, clientY) +
+            distance(x2, y2, clientX, clientY) -
             distance(x1, y1, x2, y2) <
           1
         ) {
-          const offsetX = x - x1;
-          const offsetY = y - y1;
           selectedElement = element;
-          selectedElement.offsetX = offsetX;
-          selectedElement.offsetY = offsetY;
         }
         break;
       case "rectangle":
         // console.log(x, y, x1, x1 + x2, y1, y1 + y2);
-        if (x >= x1 && x <= x2 && y >= y1 && y <= y2) {
-          const offsetX = x - x1;
-          const offsetY = y - y1;
+        if (clientX >= x1 && clientX <= x2 && clientY >= y1 && clientY <= y2) {
           selectedElement = element;
-          selectedElement.offsetX = offsetX;
-          selectedElement.offsetY = offsetY;
         }
         break;
     }
-    if (selectedElement) return;
   });
   return selectedElement;
 }
@@ -95,7 +60,7 @@ function getSelectedElement(x, y, elements) {
 function App() {
   const [elements, setElements] = useState([]);
   const [action, setAction] = useState("none");
-  const [elementType, setElementType] = useState("line");
+  const [tool, setTool] = useState("line");
   const [selectedElement, setSelectedElement] = useState(null);
 
   useLayoutEffect(() => {
@@ -111,20 +76,23 @@ function App() {
 
   function updateElement(id, x1, y1, x2, y2, type) {
     const element = createElement(id, x1, y1, x2, y2, type);
-
     const updatedElements = elements.map((el) => (el.id === id ? element : el));
     setElements(updatedElements);
   }
 
   const handleMouseDown = (e) => {
-    if (elementType === "selection") {
-      const element = getSelectedElement(e.clientX, e.clientY, elements);
+    if (tool === "selection") {
+      const element = getSelectableElement(e.clientX, e.clientY, elements);
       if (element) {
+        const offsetX = e.clientX - element.x1;
+        const offsetY = e.clientY - element.y1;
+        element.offsetX = offsetX;
+        element.offsetY = offsetY;
         setSelectedElement(element);
         setAction("moving");
       }
     } else {
-      setAction("drawing");
+      //Tools : line, rectangle
       const id = elements.length;
       const element = createElement(
         id,
@@ -132,34 +100,42 @@ function App() {
         e.clientY,
         e.clientX,
         e.clientY,
-        elementType
+        tool
       );
       setElements([...elements, element]);
+      setAction("drawing");
     }
   };
   const handleMouseMove = (e) => {
-    if (elementType === "selection") {
-      e.target.style.cursor = getSelectedElement(e.clientX, e.clientY, elements)
+    //change the cursor based on the tool
+    if (tool === "selection") {
+      e.target.style.cursor = getSelectableElement(
+        e.clientX,
+        e.clientY,
+        elements
+      )
         ? "move"
         : "default";
     }
+
+    //Handle action if not none
     if (action === "moving") {
       //move the selected element
-      const { id, x1, y1, x2, y2, elementType, offsetX, offsetY } =
-        selectedElement;
+      const { id, x1, y1, x2, y2, tool, offsetX, offsetY } = selectedElement;
       const newX1 = e.clientX - offsetX;
       const newY1 = e.clientY - offsetY;
       const newX2 = newX1 + x2 - x1;
       const newY2 = newY1 + y2 - y1;
-      updateElement(id, newX1, newY1, newX2, newY2, elementType);
+      updateElement(id, newX1, newY1, newX2, newY2, tool);
     } else if (action === "drawing") {
       const { clientX, clientY } = e;
       const { x1, y1 } = elements[elements.length - 1];
       const id = elements.length - 1;
-      updateElement(id, x1, y1, clientX, clientY, elementType);
+      updateElement(id, x1, y1, clientX, clientY, tool);
     }
   };
   const handleMouseUp = () => {
+    //reset the action and selected element
     setAction("none");
     setSelectedElement(null);
   };
@@ -175,22 +151,22 @@ function App() {
         <input
           type="radio"
           id="selection"
-          checked={elementType === "selection"}
-          onChange={() => setElementType("selection")}
+          checked={tool === "selection"}
+          onChange={() => setTool("selection")}
         />
         <label htmlFor="line">Line</label>
         <input
           type="radio"
           id="line"
-          checked={elementType === "line"}
-          onChange={() => setElementType("line")}
+          checked={tool === "line"}
+          onChange={() => setTool("line")}
         />
         <label htmlFor="rectangle">Rectangle</label>
         <input
           type="radio"
           id="rectangle"
-          checked={elementType === "rectangle"}
-          onChange={() => setElementType("rectangle")}
+          checked={tool === "rectangle"}
+          onChange={() => setTool("rectangle")}
         />
       </div>
       <canvas
