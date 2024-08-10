@@ -1,7 +1,8 @@
 import { useEffect, useLayoutEffect, useState } from "react";
 import { Line, Rectangle } from "./classes";
-import { distance } from "./utils";
+import { distance, throttle } from "./utils";
 import { useHistory } from "./hooks";
+import Doodle from "./classes/Doodle";
 
 function createElement(id, x1, y1, x2, y2, tool) {
   let element;
@@ -10,25 +11,34 @@ function createElement(id, x1, y1, x2, y2, tool) {
       //x1 & y1 are the starting point of the line
       //x2 & y2 are the ending point of the line
       element = new Line(x1, y1, x2, y2);
-      break;
+      return {
+        id,
+        x1,
+        y1,
+        x2,
+        y2,
+        tool,
+        element,
+      };
     case "rectangle":
       //x1 & y1 are the top-left corner of the rectangle
       //x2 & y2 are the bottom-right corner of the rectangle
       element = new Rectangle(x1, y1, x2 - x1, y2 - y1);
-      break;
-
+      return {
+        id,
+        x1,
+        y1,
+        x2,
+        y2,
+        tool,
+        element,
+      };
+    case "pencil":
+      element = new Doodle(x1, y1, x2, y2);
+      return { id, tool, element };
     default:
-      break;
+      throw new Error("Invalid tool");
   }
-  return {
-    id,
-    x1,
-    y1,
-    x2,
-    y2,
-    tool,
-    element,
-  };
 }
 
 function getSelectableElement(clientX, clientY, elements) {
@@ -160,7 +170,7 @@ function resizedCoords(prevCoords, x, y, clientX, clientY, type) {
 function App() {
   const [elements, setElements, undo, redo] = useHistory([]);
   const [action, setAction] = useState("none");
-  const [tool, setTool] = useState("line");
+  const [tool, setTool] = useState("pencil");
   const [selectedElement, setSelectedElement] = useState(null);
 
   useLayoutEffect(() => {
@@ -168,17 +178,37 @@ function App() {
     const ctx = canvas.getContext("2d");
     //clear the canvas
     ctx.clearRect(0, 64, canvas.width, canvas.height);
+    console.log("Elements:", elements);
 
-    elements.forEach(({ element }) => {
-      element.draw(ctx);
-    });
+    if (Array.isArray(elements) && elements.length > 0) {
+      elements.forEach(({ element }) => {
+        if (element && element.draw) {
+          element.draw(ctx);
+        }
+      });
+    }
   }, [elements]);
 
   function updateElement(id, x1, y1, x2, y2, tool) {
-    const element = createElement(id, x1, y1, x2, y2, tool);
-    const updatedElements = elements.map((el) => (el.id === id ? element : el));
-    setElements(updatedElements, true);
+    const updatedElements = elements.map((el) => {
+      if (el.id === id) {
+        if (tool === "pencil") {
+          el.element.addPoint(x2, y2); // Add a new point for the doodle
+        } else {
+          return createElement(id, x1, y1, x2, y2, tool);
+        }
+      }
+      return el;
+    });
+    // console.log("updatedElements", updatedElements);
+    setElements(updatedElements.length > 0 ? updatedElements : [], true);
   }
+  // function updateElement(id, x1, y1, x2, y2, type) {
+  //   const element = createElement(id, x1, y1, x2, y2, type);
+
+  //   const updatedElements = elements.map((el) => (el.id === id ? element : el));
+  //   setElements(updatedElements, true);
+  // }
 
   const handleMouseDown = (e) => {
     if (tool === "selection") {
@@ -256,7 +286,11 @@ function App() {
       const index = selectedElement.id;
       const { id, tool } = elements[index];
       //if the action is drawing, adjust the element's coords to have x1, y1 as the top-left corner and x2, y2 as the bottom-right corner
-      if (action === "drawing" || action === "resizing") {
+      if (
+        (action === "drawing" || action === "resizing") &&
+        tool !== "pencil"
+      ) {
+        console.log("adjusting element");
         const { x1, y1, x2, y2 } = adjustElement(elements[index]);
         updateElement(id, x1, y1, x2, y2, tool);
       }
@@ -279,6 +313,10 @@ function App() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [undo, redo]);
+
+  const handleMouseDownThrottled = throttle(handleMouseDown, 1000); // Adjust time as needed
+  const handleMouseMoveThrottled = throttle(handleMouseMove, 1000); // Adjust time as needed
+  const handleMouseUpThrottled = throttle(handleMouseUp, 1000); // Adjust time as needed
 
   return (
     <div>
@@ -319,6 +357,18 @@ function App() {
             onChange={() => setTool("rectangle")}
           />
         </div>
+        <div className="bg-gray-700 px-4 py-2 flex gap-3 rounded-full hover:cursor-pointer">
+          <label className="hover:cursor-pointer" htmlFor="pencil">
+            Pencil
+          </label>
+          <input
+            className="hover:cursor-pointer"
+            type="radio"
+            id="pencil"
+            checked={tool === "pencil"}
+            onChange={() => setTool("pencil")}
+          />
+        </div>
       </div>
       <div className="fixed bottom-0 flex gap-2">
         <button
@@ -338,9 +388,9 @@ function App() {
         id="canvas"
         width={innerWidth}
         height={innerHeight}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
+        onMouseDown={handleMouseDownThrottled}
+        onMouseMove={handleMouseMoveThrottled}
+        onMouseUp={handleMouseUpThrottled}
       >
         Canvas
       </canvas>
